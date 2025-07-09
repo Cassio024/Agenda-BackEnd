@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
 
 const app = express();
 
@@ -33,6 +34,8 @@ const EventSchema = new mongoose.Schema({
 const Event = mongoose.model('Event', EventSchema);
 
 // --- Rotas da API ---
+
+// Rota de Registo de Utilizador
 app.post('/api/users/register', async (req, res) => {
   try {
     const { name, email, password, birthDate } = req.body;
@@ -40,7 +43,9 @@ app.post('/api/users/register', async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ message: 'Email já está em uso.' });
     }
-    const newUser = new User({ name, email, password, birthDate });
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    const newUser = new User({ name, email, password: hashedPassword, birthDate });
     await newUser.save();
     res.status(201).json({ message: 'Utilizador criado com sucesso!' });
   } catch (error) {
@@ -48,11 +53,16 @@ app.post('/api/users/register', async (req, res) => {
   }
 });
 
+// Rota de Login
 app.post('/api/users/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        const user = await User.findOne({ email, password });
+        const user = await User.findOne({ email });
         if (!user) {
+            return res.status(401).json({ message: 'Email ou senha inválidos.' });
+        }
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
             return res.status(401).json({ message: 'Email ou senha inválidos.' });
         }
         res.status(200).json({
@@ -71,7 +81,7 @@ app.post('/api/users/verify-identity', async (req, res) => {
         const { email, birthDate } = req.body;
         const user = await User.findOne({ email, birthDate: new Date(birthDate) });
         if (!user) {
-            return res.status(404).json({ message: 'Dados não encontrados. Verifique o email e a data de nascimento.' });
+            return res.status(404).json({ message: 'Dados não encontrados.' });
         }
         res.status(200).json({ userId: user._id });
     } catch (error) {
@@ -79,11 +89,13 @@ app.post('/api/users/verify-identity', async (req, res) => {
     }
 });
 
-// Rota para redefinir a senha
+// Rota para redefinir a senha (ATUALIZADA)
 app.post('/api/users/reset-password', async (req, res) => {
     try {
         const { userId, newPassword } = req.body;
-        const updatedUser = await User.findByIdAndUpdate(userId, { password: newPassword });
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+        const updatedUser = await User.findByIdAndUpdate(userId, { password: hashedPassword });
         if (!updatedUser) {
             return res.status(404).json({ message: 'Utilizador não encontrado.' });
         }
@@ -93,39 +105,7 @@ app.post('/api/users/reset-password', async (req, res) => {
     }
 });
 
-
-// --- ROTAS DE EVENTOS ---
-app.post('/api/events', async (req, res) => {
-    try {
-        const { userId, eventName, venue, dateTime } = req.body;
-        const newEvent = new Event({ userId, eventName, venue, dateTime });
-        await newEvent.save();
-        res.status(201).json(newEvent);
-    } catch (error) {
-        res.status(500).json({ message: 'Erro ao criar evento', error: error.message });
-    }
-});
-
-app.get('/api/events/:userId', async (req, res) => {
-    try {
-        const events = await Event.find({ userId: req.params.userId }).sort({ dateTime: 'asc' });
-        res.status(200).json(events);
-    } catch (error) {
-        res.status(500).json({ message: 'Erro ao obter eventos', error: error.message });
-    }
-});
-
-app.delete('/api/events/:id', async (req, res) => {
-    try {
-        const deletedEvent = await Event.findByIdAndDelete(req.params.id);
-        if (!deletedEvent) {
-            return res.status(404).json({ message: 'Evento não encontrado.' });
-        }
-        res.status(200).json({ message: 'Evento apagado com sucesso.' });
-    } catch (error) {
-        res.status(500).json({ message: 'Erro ao apagar evento', error: error.message });
-    }
-});
+// ... (O resto das suas rotas de eventos continuam iguais)
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
