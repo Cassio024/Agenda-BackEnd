@@ -89,7 +89,7 @@ app.post('/api/users/verify-identity', async (req, res) => {
     }
 });
 
-// Rota para redefinir a senha (ATUALIZADA)
+// Rota para redefinir a senha
 app.post('/api/users/reset-password', async (req, res) => {
     try {
         const { userId, newPassword } = req.body;
@@ -105,7 +105,39 @@ app.post('/api/users/reset-password', async (req, res) => {
     }
 });
 
-// ... (O resto das suas rotas de eventos continuam iguais)
+
+// --- ROTAS DE EVENTOS ---
+app.post('/api/events', async (req, res) => {
+    try {
+        const { userId, eventName, venue, dateTime } = req.body;
+        const newEvent = new Event({ userId, eventName, venue, dateTime });
+        await newEvent.save();
+        res.status(201).json(newEvent);
+    } catch (error) {
+        res.status(500).json({ message: 'Erro ao criar evento', error: error.message });
+    }
+});
+
+app.get('/api/events/:userId', async (req, res) => {
+    try {
+        const events = await Event.find({ userId: req.params.userId }).sort({ dateTime: 'asc' });
+        res.status(200).json(events);
+    } catch (error) {
+        res.status(500).json({ message: 'Erro ao obter eventos', error: error.message });
+    }
+});
+
+app.delete('/api/events/:id', async (req, res) => {
+    try {
+        const deletedEvent = await Event.findByIdAndDelete(req.params.id);
+        if (!deletedEvent) {
+            return res.status(404).json({ message: 'Evento não encontrado.' });
+        }
+        res.status(200).json({ message: 'Evento apagado com sucesso.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Erro ao apagar evento', error: error.message });
+    }
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
