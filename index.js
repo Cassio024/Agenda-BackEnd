@@ -30,12 +30,14 @@ const EventSchema = new mongoose.Schema({
   eventName: { type: String, required: true },
   venue: { type: String, required: true },
   dateTime: { type: Date, required: true },
+  value: { type: Number, default: 0 },
+  status: { type: String, default: 'Confirmado' },
+  description: { type: String, default: '' }
 });
 const Event = mongoose.model('Event', EventSchema);
 
-// --- ROTAS DE UTILIZADOR ---
 
-// Rota de Registo de Utilizador
+// --- ROTAS DE UTILIZADOR ---
 app.post('/api/users/register', async (req, res) => {
   try {
     const { name, email, password, birthDate } = req.body;
@@ -53,7 +55,6 @@ app.post('/api/users/register', async (req, res) => {
   }
 });
 
-// Rota de Login
 app.post('/api/users/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -130,8 +131,8 @@ app.delete('/api/users/me/:id', async (req, res) => {
 // --- ROTAS DE EVENTOS ---
 app.post('/api/events', async (req, res) => {
     try {
-        const { userId, eventName, venue, dateTime } = req.body;
-        const newEvent = new Event({ userId, eventName, venue, dateTime });
+        const { userId, eventName, venue, dateTime, value, status, description } = req.body;
+        const newEvent = new Event({ userId, eventName, venue, dateTime, value, status, description });
         await newEvent.save();
         res.status(201).json(newEvent);
     } catch (error) {
@@ -148,6 +149,22 @@ app.get('/api/events/:userId', async (req, res) => {
     }
 });
 
+app.put('/api/events/:id', async (req, res) => {
+    try {
+        const updatedEvent = await Event.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true }
+        );
+        if (!updatedEvent) {
+            return res.status(404).json({ message: 'Evento não encontrado.' });
+        }
+        res.status(200).json(updatedEvent);
+    } catch (error) {
+        res.status(500).json({ message: 'Erro ao atualizar evento', error: error.message });
+    }
+});
+
 app.delete('/api/events/:id', async (req, res) => {
     try {
         const deletedEvent = await Event.findByIdAndDelete(req.params.id);
@@ -159,6 +176,7 @@ app.delete('/api/events/:id', async (req, res) => {
         res.status(500).json({ message: 'Erro ao apagar evento', error: error.message });
     }
 });
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
